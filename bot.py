@@ -78,7 +78,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text(get_text(), reply_markup=get_buttons())
 
-app = ApplicationBuilder().token("YOUR_TOKEN").build()
+app = ApplicationBuilder().token("8647146626:AAFxKmo5-j4PanRK1kLDZsaaXiM7LeTVv2k").build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CallbackQueryHandler(button))
