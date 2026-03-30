@@ -129,6 +129,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
     if user_id not in waiting_for_name:
+        await update.message.reply_text(
+            show_list(),
+            reply_markup=get_buttons(),
+            parse_mode='Markdown'
+        )
         return
     
     action = waiting_for_name[user_id]
@@ -203,7 +208,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"⚠️ {name} غير موجود")
     
     # حذف من انتظار الاسم
-    del waiting_for_name[user_id]
+    if user_id in waiting_for_name:
+        del waiting_for_name[user_id]
     
     # إرسال القائمة المحدثة
     await context.bot.send_message(
@@ -229,6 +235,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 def main():
+    # استخدام طريقة مبسطة بدون Updater
+    from telegram.ext import Application
+    
     app = Application.builder().token(TOKEN).build()
     
     # أوامر
