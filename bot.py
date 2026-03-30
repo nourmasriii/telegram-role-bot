@@ -3,17 +3,19 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask, request
 import os
 
-TOKEN = "8647146626:AAFxKmo5-j4PanRK1kLDZsaaXiM7LeTVv2k"
+# ضع توكن البوت هنا
+TOKEN = "PUT_YOUR_TOKEN_HERE"
 bot = telebot.TeleBot(TOKEN)
 
-ADMINS = [123456789]  # ضع هنا الـID الخاص بك أو المشرفين
+# ضع هنا ID المشرفين فقط
+ADMINS = [123456789]
 
 roles = {}
 registration_open = False
 chat_id = None
 message_id = None
 
-# Flask لتشغيل Webhook
+# Flask لتشغيل Webhook على Render
 app = Flask(__name__)
 
 @app.route('/')
@@ -55,9 +57,9 @@ def start_roles(message):
         return
     registration_open = True
     chat_id = message.chat.id
-    msg = bot.send_message(chat_id, "رجاءً أضيفوا البوت مشرف على المجموعة حتى يعمل بشكل صحيح، لا تنسونا من الدعاء", reply_markup=None)
-    msg2 = bot.send_message(chat_id, build_list(), reply_markup=keyboard())
-    message_id = msg2.message_id
+    bot.send_message(chat_id, "رجاءً أضيفوا البوت مشرف على المجموعة حتى يعمل بشكل صحيح 🙏 لا تنسونا من الدعاء")
+    msg = bot.send_message(chat_id, build_list(), reply_markup=keyboard())
+    message_id = msg.message_id
 
 # إيقاف الدور
 @bot.message_handler(commands=['stop_roles'])
@@ -114,18 +116,18 @@ def callback(call):
         else:
             bot.answer_callback_query(call.id, "يجب التسجيل أولاً")
 
-    # تحديث الرسالة
     if message_id and chat_id:
         bot.edit_message_text(build_list(), chat_id, message_id, reply_markup=keyboard())
 
-# ضبط Webhook
-WEBHOOK_URL = "https://YOUR_RENDER_URL_HERE/" + TOKEN
-bot.remove_webhook()
-bot.set_webhook(url=WEBHOOK_URL)
+# ضبط Webhook تلقائياً
+def set_webhook():
+    WEBHOOK_URL = os.environ.get("RENDER_EXTERNAL_URL") + "/" + TOKEN
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
+
+set_webhook()
 
 # تشغيل Flask
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
- 
-            
