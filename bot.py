@@ -4,7 +4,7 @@ from flask import Flask, request
 import os
 
 # ضع توكن البوت هنا
-TOKEN = "PUT_YOUR_TOKEN_HERE"
+TOKEN = "8647146626:AAFxKmo5-j4PanRK1kLDZsaaXiM7LeTVv2k"
 bot = telebot.TeleBot(TOKEN)
 
 # ضع هنا ID المشرفين فقط
