@@ -5,15 +5,15 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from dotenv import load_dotenv
 
-# تحميل المتغيرات البيئية
-load_dotenv()
-
 # إعداد التسجيل
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# ضع التوكن الخاص بك هنا مباشرة
+TELEGRAM_BOT_TOKEN = "8647146626:AAFxKmo5-j4PanRK1kLDZsaaXiM7LeTVv2k"   
 
 # تخزين البيانات
 users_data = {
@@ -40,14 +40,6 @@ def get_main_keyboard():
 # أمر بدء البوت
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """رسالة الترحيب وعرض الحالة الحالية"""
-    user = update.effective_user
-    
-    # حساب الإحصائيات
-    readers_count = len(users_data['readers'])
-    listeners_count = len(users_data['listeners'])
-    apologizers_count = len(users_data['apologizers'])
-    
-    # الحصول على التاريخ الهجري (تقريبي)
     current_date = datetime.now().strftime("%d %B %Y")
     
     welcome_message = f"""
@@ -117,7 +109,6 @@ async def handle_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
     if user_id not in pending_registrations:
-        # ليس في وضع التسجيل، نعرض القائمة الرئيسية
         await update.message.reply_text(
             "استخدم الأزرار للتفاعل مع البوت:",
             reply_markup=get_main_keyboard()
@@ -126,7 +117,6 @@ async def handle_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     name = update.message.text.strip()
     
-    # التحقق من عدم تكرار الاسم
     all_names = users_data['readers'] + users_data['listeners'] + users_data['apologizers']
     if name in all_names:
         await update.message.reply_text(
@@ -137,11 +127,9 @@ async def handle_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         del pending_registrations[user_id]
         return
     
-    # إضافة الاسم إلى قائمة القراء
     users_data['readers'].append(name)
     del pending_registrations[user_id]
     
-    # عرض الحالة المحدثة
     await update.message.reply_text(
         f"✅ *تم تسجيل اسمك بنجاح*\n\n"
         f"الاسم: {name}\n"
@@ -151,7 +139,6 @@ async def handle_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
     
-    # إرسال التحديث الكامل للمجموعة (اختياري)
     await send_full_update(context, update.effective_chat.id)
 
 # تسجيل كمستمع
@@ -160,9 +147,6 @@ async def set_listener(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    user_id = query.from_user.id
-    
-    # نحتاج لمعرفة اسم المستخدم - سنطلب منه إرسال اسمه
     await query.edit_message_text(
         "👂 *للتسجيل كمستمع*\n\n"
         "الرجاء إرسال اسمك كما هو مسجل في القائمة:",
@@ -172,16 +156,13 @@ async def set_listener(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
     
-    # تخزين أن المستخدم يريد التسجيل كمستمع
-    pending_registrations[user_id] = "listener"
+    pending_registrations[query.from_user.id] = "listener"
 
 # تسجيل كقارئ (قرأت)
 async def set_reader(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """تحويل المستخدم إلى قارئ"""
     query = update.callback_query
     await query.answer()
-    
-    user_id = query.from_user.id
     
     await query.edit_message_text(
         "📖 *للتسجيل كقارئ (قرأت)*\n\n"
@@ -192,15 +173,13 @@ async def set_reader(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
     
-    pending_registrations[user_id] = "reader"
+    pending_registrations[query.from_user.id] = "reader"
 
 # تسجيل كمعتذرة
 async def set_apologizer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """تحويل المستخدم إلى معتذرة"""
     query = update.callback_query
     await query.answer()
-    
-    user_id = query.from_user.id
     
     await query.edit_message_text(
         "❌ *للتسجيل كمعتذرة*\n\n"
@@ -211,11 +190,11 @@ async def set_apologizer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
     
-    pending_registrations[user_id] = "apologizer"
+    pending_registrations[query.from_user.id] = "apologizer"
 
-# معالجة تغيير الحالة بناءً على الاسم
+# معالجة تغيير الحالة
 async def handle_status_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """معالجة تغيير حالة المستخدم بناءً على الاسم المرسل"""
+    """معالجة تغيير حالة المستخدم"""
     user_id = update.effective_user.id
     
     if user_id not in pending_registrations:
@@ -225,21 +204,17 @@ async def handle_status_change(update: Update, context: ContextTypes.DEFAULT_TYP
     if action in ["listener", "reader", "apologizer"]:
         name = update.message.text.strip()
         
-        # البحث عن الاسم في القوائم
         found = False
         old_status = None
         
-        # البحث في قائمة القراء
         if name in users_data['readers']:
             users_data['readers'].remove(name)
             found = True
             old_status = "قارئ"
-        # البحث في قائمة المستمعين
         elif name in users_data['listeners']:
             users_data['listeners'].remove(name)
             found = True
             old_status = "مستمع"
-        # البحث في قائمة المعتذرين
         elif name in users_data['apologizers']:
             users_data['apologizers'].remove(name)
             found = True
@@ -248,13 +223,12 @@ async def handle_status_change(update: Update, context: ContextTypes.DEFAULT_TYP
         if not found:
             await update.message.reply_text(
                 f"⚠️ الاسم '{name}' غير موجود في القوائم!\n"
-                f"الرجاء التأكد من الاسم أو التسجيل أولاً باستخدام 'سجل اسمي'.",
+                f"الرجاء التأكد من الاسم أو التسجيل أولاً.",
                 reply_markup=get_main_keyboard()
             )
             del pending_registrations[user_id]
             return
         
-        # إضافة إلى القائمة الجديدة
         if action == "listener":
             users_data['listeners'].append(name)
             new_status = "مستمع 👂"
@@ -270,7 +244,6 @@ async def handle_status_change(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text(
             f"✅ *تم تحديث حالتك*\n\n"
             f"الاسم: {name}\n"
-            f"الحالة السابقة: {old_status}\n"
             f"الحالة الجديدة: {new_status}\n\n"
             f"جزاك الله خيراً",
             reply_markup=get_main_keyboard(),
@@ -281,7 +254,7 @@ async def handle_status_change(update: Update, context: ContextTypes.DEFAULT_TYP
 
 # حذف اسم المستخدم
 async def delete_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """حذف اسم المستخدم من جميع القوائم"""
+    """حذف اسم المستخدم"""
     query = update.callback_query
     await query.answer()
     
@@ -307,7 +280,6 @@ async def handle_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.message.text.strip()
     found = False
     
-    # البحث والحذف من جميع القوائم
     if name in users_data['readers']:
         users_data['readers'].remove(name)
         found = True
@@ -324,8 +296,7 @@ async def handle_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"🗑 *تم حذف اسمك بنجاح*\n\n"
             f"الاسم: {name}\n"
-            f"تم حذفه من جميع القوائم.\n\n"
-            f"يمكنك التسجيل مرة أخرى باستخدام 'سجل اسمي'",
+            f"تم حذفه من جميع القوائم.",
             reply_markup=get_main_keyboard(),
             parse_mode='Markdown'
         )
@@ -346,7 +317,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in pending_registrations:
         del pending_registrations[user_id]
     
-    # عرض الحالة الحالية
     readers_count = len(users_data['readers'])
     listeners_count = len(users_data['listeners'])
     apologizers_count = len(users_data['apologizers'])
@@ -398,6 +368,21 @@ async def clear_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """عرض إحصائيات سريعة"""
+    total = len(users_data['readers']) + len(users_data['listeners']) + len(users_data['apologizers'])
+    stats_message = f"""
+📈 *إحصائيات الختمة*
+
+📖 قارئات: {len(users_data['readers'])}
+👂 مستمعات: {len(users_data['listeners'])}
+❌ معتذرات: {len(users_data['apologizers'])}
+👥 المجموع: {total}
+
+_بارك الله فيكم جميعاً_
+"""
+    await update.message.reply_text(stats_message, parse_mode='Markdown')
+
 async def send_full_update(context, chat_id):
     """إرسال تحديث كامل للمجموعة"""
     readers_count = len(users_data['readers'])
@@ -420,33 +405,36 @@ async def send_full_update(context, chat_id):
         parse_mode='Markdown'
     )
 
-# أمر إحصائيات سريع
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """عرض إحصائيات سريعة"""
-    total = len(users_data['readers']) + len(users_data['listeners']) + len(users_data['apologizers'])
-    stats_message = f"""
-📈 *إحصائيات الختمة*
-
-📖 قارئات: {len(users_data['readers'])}
-👂 مستمعات: {len(users_data['listeners'])}
-❌ معتذرات: {len(users_data['apologizers'])}
-👥 المجموع: {total}
-
-_بارك الله فيكم جميعاً_
-"""
-    await update.message.reply_text(stats_message, parse_mode='Markdown')
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """معالجة جميع الرسائل النصية"""
+    user_id = update.effective_user.id
+    
+    if user_id in pending_registrations:
+        action = pending_registrations[user_id]
+        
+        if action is True:
+            await handle_name(update, context)
+        elif action in ["listener", "reader", "apologizer"]:
+            await handle_status_change(update, context)
+        elif action == "delete":
+            await handle_delete(update, context)
+    else:
+        await update.message.reply_text(
+            "استخدم الأزرار للتفاعل مع البوت:",
+            reply_markup=get_main_keyboard()
+        )
 
 def main():
     """تشغيل البوت"""
-    TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-    
-    if not TOKEN:
-        logger.error("لم يتم العثور على التوكن. يرجى إضافة TELEGRAM_BOT_TOKEN في ملف .env")
-        print("❌ يرجى إضافة التوكن في ملف .env")
+    # تحقق من وجود التوكن
+    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "ضع_التوكن_الخاص_بك_هنا":
+        print("❌ خطأ: لم تقم بإضافة التوكن!")
+        print("📝 الرجاء تعديل السطر الذي فيه TELEGRAM_BOT_TOKEN ووضع التوكن الخاص بك")
+        print("🤖 للحصول على توكن: اذهب إلى @BotFather في التليجرام وأنشئ بوت جديد")
         return
     
     # إنشاء التطبيق
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
     # أوامر البوت
     application.add_handler(CommandHandler("start", start))
@@ -466,27 +454,8 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     
     print("🤖 البوت يعمل...")
+    print(f"✅ تم تشغيل البوت بنجاح! اذهب إلى تليجرام وأرسل /start")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """معالجة جميع الرسائل النصية"""
-    user_id = update.effective_user.id
-    
-    if user_id in pending_registrations:
-        action = pending_registrations[user_id]
-        
-        if action is True:  # تسجيل اسم جديد
-            await handle_name(update, context)
-        elif action in ["listener", "reader", "apologizer"]:
-            await handle_status_change(update, context)
-        elif action == "delete":
-            await handle_delete(update, context)
-    else:
-        # رسالة عادية، نعرض القائمة
-        await update.message.reply_text(
-            "استخدم الأزرار للتفاعل مع البوت:",
-            reply_markup=get_main_keyboard()
-        )
 
 if __name__ == "__main__":
     main()
