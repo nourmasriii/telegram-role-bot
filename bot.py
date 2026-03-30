@@ -1,19 +1,31 @@
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import threading
+from flask import Flask, request
 import os
 
-# ضع توكن البوت هنا
-TOKEN = "8647146626:AAGT-Ia07RxDycsDh8BPBmsMBRzLlXtyMQo"
+TOKEN = "8647146626:AAFxKmo5-j4PanRK1kLDZsaaXiM7LeTVv2k"
 bot = telebot.TeleBot(TOKEN)
 
-# IDs المشرفين فقط يمكنهم التحكم
 ADMINS = [123456789]  # ضع هنا الـID الخاص بك أو المشرفين
 
-roles = {}  # تخزين كل شخص وحالته
+roles = {}
 registration_open = False
 chat_id = None
 message_id = None
+
+# Flask لتشغيل Webhook
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return "Bot is running"
+
+@app.route(f"/{TOKEN}", methods=['POST'])
+def webhook():
+    json_str = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return '', 200
 
 def build_list():
     if not roles:
@@ -34,7 +46,7 @@ def keyboard():
         )
     return markup
 
-# أمر تشغيل الدور للمشرف
+# بدء الدور
 @bot.message_handler(commands=['start_roles'])
 def start_roles(message):
     global registration_open, chat_id, message_id
@@ -43,10 +55,11 @@ def start_roles(message):
         return
     registration_open = True
     chat_id = message.chat.id
-    msg = bot.send_message(chat_id, build_list(), reply_markup=keyboard())
-    message_id = msg.message_id
+    msg = bot.send_message(chat_id, "رجاءً أضيفوا البوت مشرف على المجموعة حتى يعمل بشكل صحيح، لا تنسونا من الدعاء", reply_markup=None)
+    msg2 = bot.send_message(chat_id, build_list(), reply_markup=keyboard())
+    message_id = msg2.message_id
 
-# أمر إيقاف الدور
+# إيقاف الدور
 @bot.message_handler(commands=['stop_roles'])
 def stop_roles(message):
     global registration_open
@@ -56,7 +69,7 @@ def stop_roles(message):
     registration_open = False
     bot.send_message(message.chat.id, "تم إيقاف تسجيل الأدوار ✅")
 
-# أمر مسح القائمة
+# مسح القائمة
 @bot.message_handler(commands=['reset_roles'])
 def reset_roles(message):
     global roles
@@ -66,19 +79,19 @@ def reset_roles(message):
     roles = {}
     bot.send_message(message.chat.id, "تم مسح القائمة والبدء من جديد 🗑️")
 
-# تعامل مع الأزرار
+# التعامل مع الأزرار
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
-    global roles, registration_open
-    name = call.from_user.first_name
+    global roles, registration_open, message_id
 
+    name = call.from_user.first_name
     if not registration_open:
         bot.answer_callback_query(call.id, "التسجيل مغلق الآن 🚫")
         return
 
     if call.data == "register":
         if name not in roles:
-            roles[name] = "مسجل"
+            roles[name] = "مسجل ✅"
             bot.answer_callback_query(call.id, "تم تسجيل اسمك ✅")
         else:
             bot.answer_callback_query(call.id, "أنت مسجل بالفعل ✅")
@@ -105,6 +118,14 @@ def callback(call):
     if message_id and chat_id:
         bot.edit_message_text(build_list(), chat_id, message_id, reply_markup=keyboard())
 
-# تشغيل البوت
-threading.Thread(target=bot.infinity_polling).start()
+# ضبط Webhook
+WEBHOOK_URL = "https://YOUR_RENDER_URL_HERE/" + TOKEN
+bot.remove_webhook()
+bot.set_webhook(url=WEBHOOK_URL)
+
+# تشغيل Flask
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
  
+            
